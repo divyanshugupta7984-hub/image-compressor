@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>SquishLocal Studio — 100% Local Bulk Image Compressor & Converter</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip for client-side ZIP bundling -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            obsidian: {
+              950: '#09090b',
+              900: '#111114',
+              850: '#16161a',
+              800: '#1c1c21',
+            }
+          }
+        },
+      },
+    };
+  </script>
+  <style>
+    /* Studio-grade custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(161, 161, 170, 0.25);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(161, 161, 170, 0.45);
+    }
+
+    /* High-craft range slider styling (44px touch target friendly) */
+    input[type="range"].studio-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 28px;
+    }
+    input[type="range"].studio-slider::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(113, 113, 122, 0.28);
+    }
+    input[type="range"].studio-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #10b981;
+      border: 2.5px solid #ffffff;
+      margin-top: -7px;
+      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
+      transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.15s ease;
+    }
+    input[type="range"].studio-slider::-webkit-slider-thumb:hover,
+    input[type="range"].studio-slider:active::-webkit-slider-thumb {
+      transform: scale(1.16);
+      background: #34d399;
+    }
+    input[type="range"].studio-slider::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(113, 113, 122, 0.28);
+    }
+    input[type="range"].studio-slider::-moz-range-thumb {
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #10b981;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.45);
+    }
+
+    /* Transparency checkerboard pattern */
+    .checkerboard {
+      background-color: #f4f4f5;
+      background-image:
+        linear-gradient(45deg, #e4e4e7 25%, transparent 25%),
+        linear-gradient(-45deg, #e4e4e7 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e4e4e7 75%),
+        linear-gradient(-45deg, transparent 75%, #e4e4e7 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    }
+    .dark .checkerboard {
+      background-color: #0c0c0f;
+      background-image:
+        linear-gradient(45deg, #18181d 25%, transparent 25%),
+        linear-gradient(-45deg, #18181d 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #18181d 75%),
+        linear-gradient(-45deg, transparent 75%, #18181d 75%);
+    }
+
+    /* Ambient subtle top glow */
+    .studio-glow {
+      background-image: radial-gradient(ellipse 80% 45% at 50% -15%, rgba(16, 185, 129, 0.14), transparent),
+                        radial-gradient(ellipse 60% 40% at 85% -10%, rgba(139, 92, 246, 0.10), transparent);
+    }
+    .dark .studio-glow {
+      background-image: radial-gradient(ellipse 80% 45% at 50% -15%, rgba(16, 185, 129, 0.16), transparent),
+                        radial-gradient(ellipse 60% 40% at 85% -10%, rgba(139, 92, 246, 0.12), transparent);
+    }
+  </style>
+</head>
+<body class="bg-zinc-50 text-zinc-900 dark:bg-obsidian-950 dark:text-zinc-100 min-h-screen flex flex-col font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-200 studio-glow">
+
+  <!-- Glassmorphic Floating Top Header -->
+  <header class="sticky top-0 z-30 border-b border-zinc-200/80 dark:border-white/[0.08] bg-white/80 dark:bg-obsidian-950/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <!-- Brand Identity -->
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-violet-600 p-[1px] shadow-lg shadow-emerald-500/20 shrink-0">
+          <div class="w-full h-full rounded-[11px] bg-white dark:bg-obsidian-900 flex items-center justify-center">
+            <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-base sm:text-lg tracking-tight truncate">Squish<span class="text-emerald-500">Local</span></span>
+            <span class="text-[10px] font-mono font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+              Studio
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Controls: Privacy Shield + Demo Trigger + Theme Toggle -->
+      <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <!-- Privacy Shield Pill -->
+        <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Privacy Shield: 100% Local • EXIF &amp; GPS Stripped</span>
+        </div>
+
+        <!-- Mobile Settings Drawer Button -->
+        <button id="mobileSettingsBtn" type="button" aria-label="Toggle compression settings"
+          class="lg:hidden min-h-[40px] px-3 py-2 rounded-xl border border-zinc-200 dark:border-white/[0.1] bg-zinc-100/80 dark:bg-obsidian-850 hover:bg-zinc-200/70 dark:hover:bg-obsidian-800 text-xs font-semibold flex items-center gap-1.5 transition">
+          <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          <span>Settings</span>
+          <span id="mobileDirtyDot" class="hidden w-2 h-2 rounded-full bg-amber-400"></span>
+        </button>
+
+        <!-- Theme Switcher -->
+        <button id="themeToggle" type="button" aria-label="Toggle color theme"
+          class="min-w-[40px] min-h-[40px] p-2.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-100/80 dark:bg-obsidian-900 hover:bg-zinc-200/70 dark:hover:bg-obsidian-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center transition">
+          <svg class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Studio Split Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-8 pb-24 lg:pb-10">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- LEFT SIDEBAR: Sticky Studio Control Panel (Desktop) / Collapsible Drawer (Mobile & Tablet) -->
+      <aside id="settingsSidebar" class="hidden lg:block lg:col-span-4 xl:col-span-4 lg:sticky lg:top-22 space-y-4">
+        <div class="rounded-2xl border border-zinc-200/90 dark:border-white/[0.08] bg-white/95 dark:bg-obsidian-900/95 backdrop-blur-xl p-5 shadow-xl shadow-black/5 dark:shadow-black/40 space-y-5">
+          <!-- Panel Header -->
+          <div class="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-white/[0.06]">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              <h2 class="text-sm font-semibold tracking-tight">Export Pipeline</h2>
+            </div>
+            <span id="dirtyBadge" class="hidden text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+              Pending Apply
+            </span>
+          </div>
+
+          <!-- 1. Output Format Segmented Control -->
+          <div>
+            <label class="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">
+              Output Format
+            </label>
+            <div id="formatSegmented" class="grid grid-cols-4 gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-obsidian-950 border border-zinc-200/70 dark:border-white/[0.06]">
+              <button type="button" data-format="image/webp" class="format-btn min-h-[38px] rounded-lg text-xs font-semibold transition bg-white dark:bg-obsidian-800 text-emerald-600 dark:text-emerald-400 shadow-sm">
+                WebP
+              </button>
+              <button type="button" data-format="image/jpeg" class="format-btn min-h-[38px] rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition">
+                JPEG
+              </button>
+              <button type="button" data-format="image/png" class="format-btn min-h-[38px] rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition">
+                PNG
+              </button>
+              <button type="button" data-format="original" class="format-btn min-h-[38px] rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition">
+                Auto
+              </button>
+            </div>
+            <p id="formatHint" class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5">
+              WebP delivers ~30% smaller files than JPEG with transparency support.
+            </p>
+          </div>
+
+          <!-- 2. Quality Slider + Quick Presets -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="qualitySlider" class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Compression Quality
+              </label>
+              <span id="qualityValue" class="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                82%
+              </span>
+            </div>
+
+            <input id="qualitySlider" type="range" min="10" max="100" value="82" step="1" class="studio-slider w-full" />
+
+            <!-- Quick Quality Presets -->
+            <div class="grid grid-cols-3 gap-1.5 mt-1">
+              <button type="button" data-preset="72" class="preset-btn min-h-[36px] px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 hover:border-emerald-500/50 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 transition">
+                Web <span class="font-mono text-zinc-400">72%</span>
+              </button>
+              <button type="button" data-preset="82" class="preset-btn min-h-[36px] px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 transition">
+                Balanced <span class="font-mono">82%</span>
+              </button>
+              <button type="button" data-preset="94" class="preset-btn min-h-[36px] px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 hover:border-emerald-500/50 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 transition">
+                Pro <span class="font-mono text-zinc-400">94%</span>
+              </button>
+            </div>
+
+            <p id="pngQualityNote" class="hidden text-[11px] text-amber-600 dark:text-amber-400/90 mt-2">
+              PNG is lossless; quality slider applies to WebP and JPEG outputs.
+            </p>
+          </div>
+
+          <!-- 3. Resize Mode Selector -->
+          <div class="space-y-2.5">
+            <label class="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              Dimensions &amp; Scaling
+            </label>
+            <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-obsidian-950 border border-zinc-200/70 dark:border-white/[0.06]">
+              <button type="button" data-resize-mode="original" class="resize-mode-btn min-h-[36px] rounded-lg text-xs font-semibold bg-white dark:bg-obsidian-800 text-zinc-900 dark:text-white shadow-sm transition">
+                Original
+              </button>
+              <button type="button" data-resize-mode="maxWidth" class="resize-mode-btn min-h-[36px] rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition">
+                Max Width
+              </button>
+              <button type="button" data-resize-mode="scale" class="resize-mode-btn min-h-[36px] rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition">
+                Scale %
+              </button>
+            </div>
+
+            <!-- Max Width Controls -->
+            <div id="maxWidthControls" class="hidden space-y-2 pt-1">
+              <div class="grid grid-cols-4 gap-1.5">
+                <button type="button" data-width-preset="1920" class="width-preset-btn min-h-[34px] rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 hover:border-emerald-500/50 font-mono text-[11px] transition">1920</button>
+                <button type="button" data-width-preset="1280" class="width-preset-btn min-h-[34px] rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 hover:border-emerald-500/50 font-mono text-[11px] transition">1280</button>
+                <button type="button" data-width-preset="800" class="width-preset-btn min-h-[34px] rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 hover:border-emerald-500/50 font-mono text-[11px] transition">800</button>
+                <button type="button" data-width-preset="512" class="width-preset-btn min-h-[34px] rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 hover:border-emerald-500/50 font-mono text-[11px] transition">512</button>
+              </div>
+              <div class="relative">
+                <input id="maxWidthInput" type="number" min="16" max="16000" value="1920" placeholder="Custom max width"
+                  class="w-full min-h-[42px] rounded-xl border border-zinc-200 dark:border-white/[0.1] bg-zinc-50 dark:bg-obsidian-950 px-3.5 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                <span class="absolute right-3.5 top-1/2 -translate-y-1/2 font-mono text-xs text-zinc-400 pointer-events-none">px</span>
+              </div>
+            </div>
+
+            <!-- Scale Percentage Controls -->
+            <div id="scaleControls" class="hidden pt-1">
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" data-scale-preset="75" class="scale-preset-btn min-h-[38px] rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-semibold transition">75%</button>
+                <button type="button" data-scale-preset="50" class="scale-preset-btn min-h-[38px] rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 font-mono text-xs font-medium transition">50%</button>
+                <button type="button" data-scale-preset="25" class="scale-preset-btn min-h-[38px] rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 font-mono text-xs font-medium transition">25%</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Transparency Background Fill (Shown for JPEG or Auto) -->
+          <div id="bgFillSection" class="hidden space-y-2 pt-1">
+            <label class="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              Transparency Matte Fill <span class="text-zinc-400 font-normal">(for JPEG)</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <button type="button" data-bg-color="#ffffff" class="bg-swatch-btn w-9 h-9 rounded-xl border-2 border-emerald-500 bg-white shadow-sm transition" title="White matte"></button>
+              <button type="button" data-bg-color="#09090b" class="bg-swatch-btn w-9 h-9 rounded-xl border border-zinc-300 dark:border-white/20 bg-zinc-950 shadow-sm transition" title="Obsidian Black matte"></button>
+              <label class="flex-1 min-h-[36px] px-3 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 flex items-center justify-between cursor-pointer text-xs">
+                <span class="text-zinc-500 dark:text-zinc-400">Custom</span>
+                <input id="customBgColor" type="color" value="#ffffff" class="w-6 h-6 rounded bg-transparent border-0 cursor-pointer" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Apply / Re-process CTA -->
+          <div class="pt-2 flex items-center gap-2">
+            <button id="reprocessBtn" type="button" disabled
+              class="flex-1 min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-35 disabled:pointer-events-none text-white text-sm font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Apply &amp; Re-process</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Privacy Shield Card -->
+        <div class="rounded-2xl border border-zinc-200/80 dark:border-white/[0.06] bg-white/70 dark:bg-obsidian-900/60 p-4 flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <div class="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+            <p class="font-semibold text-zinc-900 dark:text-zinc-200">Zero-Upload Privacy Shield</p>
+            <p class="mt-0.5">EXIF camera tags &amp; GPS coordinates are automatically stripped during HTML5 Canvas decoding.</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT WORKSPACE: Dropzone, Aggregate Analytics & Queue (8 cols on Desktop) -->
+      <div class="lg:col-span-8 space-y-5">
+
+        <!-- Hero Dropzone Card -->
+        <div id="dropZone" role="button" tabindex="0" aria-label="Upload images by tapping or dragging files here"
+          class="rounded-2xl border-2 border-dashed border-zinc-300 dark:border-white/[0.12] bg-white/90 dark:bg-obsidian-900/75 hover:border-emerald-500 dark:hover:border-emerald-500/70 hover:bg-emerald-500/[0.02] transition-all duration-200 p-6 sm:p-9 text-center cursor-pointer group relative overflow-hidden shadow-sm">
+          
+          <input id="fileInput" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/svg+xml" class="hidden" />
+
+          <div class="max-w-lg mx-auto flex flex-col items-center">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-violet-500/15 border border-emerald-500/25 text-emerald-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200 shadow-inner">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+
+            <h1 class="text-lg sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+              Drop images or tap to browse
+            </h1>
+            <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
+              Batch compress &amp; convert <span class="font-mono text-zinc-700 dark:text-zinc-300">PNG, JPEG, WebP, GIF, BMP, SVG</span> locally at 60fps.
+            </p>
+
+            <!-- Primary Touch-Friendly Action Buttons -->
+            <div class="mt-5 flex flex-wrap items-center justify-center gap-2.5 w-full sm:w-auto">
+              <button id="browseBtn" type="button"
+                class="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white text-sm font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Select Photos</span>
+              </button>
+
+              <button id="loadDemoBtn" type="button"
+                class="min-h-[44px] px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-white/[0.1] bg-zinc-100/80 dark:bg-obsidian-850 hover:bg-zinc-200/80 dark:hover:bg-obsidian-800 text-zinc-700 dark:text-zinc-200 text-sm font-medium transition flex items-center gap-2">
+                <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+                <span>Load 3 Demo Samples</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aggregate Savings & Bulk Export Bar -->
+        <section id="summaryBar" class="hidden rounded-2xl border border-zinc-200/90 dark:border-white/[0.08] bg-white/95 dark:bg-obsidian-900/95 backdrop-blur-xl p-4 sm:p-5 shadow-lg shadow-black/5 dark:shadow-black/30">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <!-- Telemetry Metrics -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 flex-1">
+              <div class="p-2.5 rounded-xl bg-zinc-50 dark:bg-obsidian-950/70 border border-zinc-100 dark:border-white/[0.04]">
+                <p class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Batch Count</p>
+                <p id="statCount" class="font-mono text-base sm:text-lg font-bold mt-0.5">0</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-zinc-50 dark:bg-obsidian-950/70 border border-zinc-100 dark:border-white/[0.04]">
+                <p class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Original</p>
+                <p id="statOriginal" class="font-mono text-base sm:text-lg font-bold mt-0.5">0 KB</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-zinc-50 dark:bg-obsidian-950/70 border border-zinc-100 dark:border-white/[0.04]">
+                <p class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Optimized</p>
+                <p id="statCompressed" class="font-mono text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">0 KB</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20">
+                <p class="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">Net Savings</p>
+                <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span id="statSavedBytes" class="font-mono text-sm sm:text-base font-bold">0 KB</span>
+                  <span id="statSavedBadge" class="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">-0%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bulk Actions (Desktop) -->
+            <div class="hidden sm:flex items-center gap-2 shrink-0">
+              <button id="clearAllBtn" type="button"
+                class="min-h-[44px] px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30 text-zinc-600 dark:text-zinc-300 text-xs font-semibold transition">
+                Clear
+              </button>
+              <button id="downloadZipBtn" type="button"
+                class="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white text-sm font-semibold shadow-lg shadow-emerald-600/25 transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span id="zipBtnLabel">Download All (.ZIP)</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Image Queue List -->
+        <section id="queueSection" class="hidden space-y-3">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Processed Queue
+            </h3>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">
+              Tap <strong class="text-zinc-700 dark:text-zinc-200">Compare</strong> to inspect 1:1 quality
+            </span>
+          </div>
+          <div id="imageList" class="space-y-3"></div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Sticky Bottom Action Bar (Visible on small screens when queue has items) -->
+  <div id="mobileBottomBar" class="sm:hidden fixed bottom-0 inset-x-0 z-30 hidden border-t border-zinc-200/80 dark:border-white/[0.08] bg-white/90 dark:bg-obsidian-950/90 backdrop-blur-xl px-4 py-3 flex items-center gap-2.5 shadow-2xl">
+    <button id="mobileClearBtn" type="button"
+      class="min-h-[44px] px-3.5 rounded-xl border border-zinc-200 dark:border-white/[0.1] text-zinc-600 dark:text-zinc-300 text-xs font-semibold">
+      Clear
+    </button>
+    <button id="mobileZipBtn" type="button"
+      class="flex-1 min-h-[44px] px-4 rounded-xl bg-emerald-600 active:scale-[0.98] text-white text-sm font-semibold shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      <span id="mobileZipLabel">Download All (.ZIP)</span>
+    </button>
+  </div>
+
+  <!-- Full-Screen Responsive Before / After Split Comparison Modal -->
+  <div id="compareModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-5">
+    <div class="bg-white dark:bg-obsidian-900 border border-zinc-200 dark:border-white/[0.1] rounded-2xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[94vh]">
+      
+      <!-- Modal Top Toolbar -->
+      <div class="px-4 sm:px-5 py-3 border-b border-zinc-200 dark:border-white/[0.08] flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h4 id="modalTitle" class="font-semibold text-sm truncate">Comparison Inspector</h4>
+          <p id="modalMeta" class="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate"></p>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Zoom Toggle: Fit vs 100% 1:1 Pixel View -->
+          <div class="flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-obsidian-950 border border-zinc-200/80 dark:border-white/[0.08]">
+            <button id="zoomFitBtn" type="button" class="min-h-[34px] px-2.5 rounded-lg text-xs font-semibold bg-white dark:bg-obsidian-800 text-zinc-900 dark:text-white shadow-sm transition">
+              Fit
+            </button>
+            <button id="zoom100Btn" type="button" class="min-h-[34px] px-2.5 rounded-lg font-mono text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition">
+              1:1
+            </button>
+          </div>
+
+          <button id="closeModalBtn" type="button" aria-label="Close modal"
+            class="min-w-[40px] min-h-[40px] rounded-xl hover:bg-zinc-100 dark:hover:bg-obsidian-800 text-zinc-500 flex items-center justify-center transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Interactive Pointer/Touch Split Comparison Stage -->
+      <div id="compareViewport" class="relative flex-1 overflow-auto flex items-center justify-center p-3 sm:p-6 checkerboard select-none">
+        <div id="compareStage" class="relative inline-block overflow-hidden rounded-xl shadow-2xl border border-zinc-300/60 dark:border-white/[0.12] touch-none">
+          <!-- Compressed Image (Base Layer - Right) -->
+          <img id="compareCompressedImg" alt="Compressed output" draggable="false"
+            class="block max-w-full max-h-[64vh] object-contain pointer-events-none" />
+
+          <!-- Original Image (Clipped Overlay - Left) -->
+          <div id="compareOriginalOverlay" class="absolute inset-0 overflow-hidden pointer-events-none" style="clip-path: inset(0 50% 0 0);">
+            <img id="compareOriginalImg" alt="Original input" draggable="false"
+              class="block w-full h-full object-contain pointer-events-none" />
+          </div>
+
+          <!-- Floating Size Badges -->
+          <div class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-zinc-950/80 text-white font-mono text-[11px] font-medium backdrop-blur-md border border-white/10 pointer-events-none">
+            ORIG • <span id="modalOrigSize"></span>
+          </div>
+          <div class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-emerald-600/90 text-white font-mono text-[11px] font-semibold backdrop-blur-md border border-white/15 pointer-events-none">
+            NEW • <span id="modalCompSize"></span>
+          </div>
+
+          <!-- Vertical Split Line & Draggable Thumb Handle -->
+          <div id="compareDivider" class="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_12px_rgba(0,0,0,0.85)] pointer-events-none" style="left: 50%;">
+            <div class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white text-zinc-950 shadow-xl flex items-center justify-center border-2 border-emerald-500">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l-3 3 3 3m8-6l3 3-3 3" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Bottom Footer -->
+      <div class="px-4 sm:px-5 py-3 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-950/70 flex items-center justify-between gap-3">
+        <span class="text-xs text-zinc-500 dark:text-zinc-400">
+          Drag or swipe across image to compare
+        </span>
+        <button id="modalDownloadBtn" type="button"
+          class="min-h-[42px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white text-xs sm:text-sm font-semibold shadow-md shadow-emerald-600/20 transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Download File</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-20 sm:bottom-5 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-[calc(100vw-2rem)]"></div>
+
+  <script>
+    /**
+     * SquishLocal Studio — 100% Client-Side Bulk Image Compressor & Format Converter
+     * Zero network API calls. Uses HTML5 Canvas for asynchronous image encoding,
+     * metadata stripping, procedural demo generation, and JSZip for bulk archiving.
+     */
+    (function () {
+      'use strict';
+
+      const state = {
+        items: [],
+        format: 'image/webp',
+        quality: 82,
+        resizeMode: 'original', // 'original' | 'maxWidth' | 'scale'
+        maxWidth: 1920,
+        scalePercent: 75,
+        bgColor: '#ffffff',
+        isProcessing: false,
+        activeModalItemId: null,
+        isZoom100: false,
+        sliderPercent: 50,
+      };
+
+      const SUPPORTED_TYPES = new Set([
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/gif',
+        'image/bmp',
+        'image/svg+xml',
+      ]);
+
+      const FORMAT_HINTS = {
+        'image/webp': 'WebP delivers ~30% smaller files than JPEG with transparency support.',
+        'image/jpeg': 'JPEG is ideal for photography; transparent regions use your matte fill.',
+        'image/png': 'Lossless PNG preserves razor-sharp UI edges and full alpha transparency.',
+        'original': 'Preserves each file’s native format while optimizing size and stripping EXIF.',
+      };
+
+      // DOM References
+      const els = {
+        themeToggle: document.getElementById('themeToggle'),
+        mobileSettingsBtn: document.getElementById('mobileSettingsBtn'),
+        mobileDirtyDot: document.getElementById('mobileDirtyDot'),
+        settingsSidebar: document.getElementById('settingsSidebar'),
+        dirtyBadge: document.getElementById('dirtyBadge'),
+        formatBtns: document.querySelectorAll('.format-btn'),
+        formatHint: document.getElementById('formatHint'),
+        qualitySlider: document.getElementById('qualitySlider'),
+        qualityValue: document.getElementById('qualityValue'),
+        presetBtns: document.querySelectorAll('.preset-btn'),
+        pngQualityNote: document.getElementById('pngQualityNote'),
+        resizeModeBtns: document.querySelectorAll('.resize-mode-btn'),
+        maxWidthControls: document.getElementById('maxWidthControls'),
+        widthPresetBtns: document.querySelectorAll('.width-preset-btn'),
+        maxWidthInput: document.getElementById('maxWidthInput'),
+        scaleControls: document.getElementById('scaleControls'),
+        scalePresetBtns: document.querySelectorAll('.scale-preset-btn'),
+        bgFillSection: document.getElementById('bgFillSection'),
+        bgSwatchBtns: document.querySelectorAll('.bg-swatch-btn'),
+        customBgColor: document.getElementById('customBgColor'),
+        reprocessBtn: document.getElementById('reprocessBtn'),
+        dropZone: document.getElementById('dropZone'),
+        fileInput: document.getElementById('fileInput'),
+        browseBtn: document.getElementById('browseBtn'),
+        loadDemoBtn: document.getElementById('loadDemoBtn'),
+        summaryBar: document.getElementById('summaryBar'),
+        statCount: document.getElementById('statCount'),
+        statOriginal: document.getElementById('statOriginal'),
+        statCompressed: document.getElementById('statCompressed'),
+        statSavedBytes: document.getElementById('statSavedBytes'),
+        statSavedBadge: document.getElementById('statSavedBadge'),
+        clearAllBtn: document.getElementById('clearAllBtn'),
+        downloadZipBtn: document.getElementById('downloadZipBtn'),
+        zipBtnLabel: document.getElementById('zipBtnLabel'),
+        mobileBottomBar: document.getElementById('mobileBottomBar'),
+        mobileClearBtn: document.getElementById('mobileClearBtn'),
+        mobileZipBtn: document.getElementById('mobileZipBtn'),
+        mobileZipLabel: document.getElementById('mobileZipLabel'),
+        queueSection: document.getElementById('queueSection'),
+        imageList: document.getElementById('imageList'),
+        // Modal
+        compareModal: document.getElementById('compareModal'),
+        closeModalBtn: document.getElementById('closeModalBtn'),
+        modalTitle: document.getElementById('modalTitle'),
+        modalMeta: document.getElementById('modalMeta'),
+        zoomFitBtn: document.getElementById('zoomFitBtn'),
+        zoom100Btn: document.getElementById('zoom100Btn'),
+        compareViewport: document.getElementById('compareViewport'),
+        compareStage: document.getElementById('compareStage'),
+        compareOriginalImg: document.getElementById('compareOriginalImg'),
+        compareCompressedImg: document.getElementById('compareCompressedImg'),
+        compareOriginalOverlay: document.getElementById('compareOriginalOverlay'),
+        compareDivider: document.getElementById('compareDivider'),
+        modalOrigSize: document.getElementById('modalOrigSize'),
+        modalCompSize: document.getElementById('modalCompSize'),
+        modalDownloadBtn: document.getElementById('modalDownloadBtn'),
+        toastContainer: document.getElementById('toastContainer'),
+      };
+
+      // --- Theme Initialization ---
+      function initTheme() {
+        const saved = localStorage.getItem('squishlocal_studio_theme');
+        if (saved === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      }
+
+      els.themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('squishlocal_studio_theme', isDark ? 'dark' : 'light');
+      });
+
+      // Mobile Settings Drawer Toggle
+      els.mobileSettingsBtn.addEventListener('click', () => {
+        els.settingsSidebar.classList.toggle('hidden');
+      });
+
+      // --- Utilities ---
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 2)) + ' ' + sizes[i];
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        const styles =
+          type === 'error'
+            ? 'bg-rose-600 text-white border-rose-500'
+            : type === 'success'
+            ? 'bg-emerald-600 text-white border-emerald-500'
+            : 'bg-zinc-900 text-zinc-100 border-white/10 dark:bg-obsidian-800';
+
+        toast.className = `${styles} border px-4 py-2.5 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0`;
+        toast.textContent = message;
+        els.toastContainer.appendChild(toast);
+
+        requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+
+        setTimeout(() => {
+          toast.classList.add('opacity-0', 'translate-y-2');
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      function markDirty() {
+        if (state.items.length > 0) {
+          els.dirtyBadge.classList.remove('hidden');
+          els.mobileDirtyDot.classList.remove('hidden');
+        }
+      }
+
+      function clearDirty() {
+        els.dirtyBadge.classList.add('hidden');
+        els.mobileDirtyDot.classList.add('hidden');
+      }
+
+      // --- Settings Controls Synchronization ---
+      function setOutputFormat(fmt) {
+        state.format = fmt;
+        els.formatBtns.forEach((btn) => {
+          const active = btn.dataset.format === fmt;
+          btn.className = active
+            ? 'format-btn min-h-[38px] rounded-lg text-xs font-semibold transition bg-white dark:bg-obsidian-800 text-emerald-600 dark:text-emerald-400 shadow-sm'
+            : 'format-btn min-h-[38px] rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition';
+        });
+
+        els.formatHint.textContent = FORMAT_HINTS[fmt] || '';
+        els.pngQualityNote.classList.toggle('hidden', fmt !== 'image/png');
+        els.bgFillSection.classList.toggle('hidden', fmt !== 'image/jpeg' && fmt !== 'original');
+        markDirty();
+      }
+
+      function setQuality(val) {
+        const clamped = Math.max(10, Math.min(100, Number(val)));
+        state.quality = clamped;
+        els.qualitySlider.value = clamped;
+        els.qualityValue.textContent = `${clamped}%`;
+
+        els.presetBtns.forEach((btn) => {
+          const isMatch = Number(btn.dataset.preset) === clamped;
+          btn.className = isMatch
+            ? 'preset-btn min-h-[36px] px-2 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 transition'
+            : 'preset-btn min-h-[36px] px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 hover:border-emerald-500/50 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 transition';
+        });
+
+        markDirty();
+      }
+
+      function setResizeMode(mode) {
+        state.resizeMode = mode;
+        els.resizeModeBtns.forEach((btn) => {
+          const active = btn.dataset.resizeMode === mode;
+          btn.className = active
+            ? 'resize-mode-btn min-h-[36px] rounded-lg text-xs font-semibold bg-white dark:bg-obsidian-800 text-zinc-900 dark:text-white shadow-sm transition'
+            : 'resize-mode-btn min-h-[36px] rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition';
+        });
+
+        els.maxWidthControls.classList.toggle('hidden', mode !== 'maxWidth');
+        els.scaleControls.classList.toggle('hidden', mode !== 'scale');
+        markDirty();
+      }
+
+      // --- Client-Side Image Encoding Engine ---
+      function getTargetMimeType(originalType) {
+        if (state.format !== 'original') return state.format;
+        if (originalType === 'image/gif' || originalType === 'image/bmp' || originalType === 'image/svg+xml') {
+          return 'image/png';
+        }
+        return originalType || 'image/jpeg';
+      }
+
+      function getExtensionForMime(mime) {
+        if (mime === 'image/webp') return 'webp';
+        if (mime === 'image/jpeg') return 'jpg';
+        if (mime === 'image/png') return 'png';
+        return 'jpg';
+      }
+
+      function buildOutputFilename(originalName, targetMime) {
+        const dotIndex = originalName.lastIndexOf('.');
+        const baseName = dotIndex > 0 ? originalName.substring(0, dotIndex) : originalName;
+        return `${baseName}.${getExtensionForMime(targetMime)}`;
+      }
+
+      function loadImageFromUrl(url) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('Unable to decode image'));
+          img.src = url;
+        });
+      }
+
+      async function processSingleItem(item) {
+        item.status = 'processing';
+        renderItemCard(item);
+
+        // Yield a frame to keep 60fps UI responsiveness during large batches
+        await new Promise((r) => requestAnimationFrame(r));
+
+        try {
+          const img = await loadImageFromUrl(item.originalUrl);
+          item.origWidth = img.naturalWidth || img.width || 800;
+          item.origHeight = img.naturalHeight || img.height || 600;
+
+          let targetWidth = item.origWidth;
+          let targetHeight = item.origHeight;
+
+          if (state.resizeMode === 'maxWidth') {
+            const maxW = Math.max(16, parseInt(els.maxWidthInput.value, 10) || 1920);
+            if (item.origWidth > maxW) {
+              const ratio = maxW / item.origWidth;
+              targetWidth = Math.round(item.origWidth * ratio);
+              targetHeight = Math.round(item.origHeight * ratio);
+            }
+          } else if (state.resizeMode === 'scale') {
+            const factor = state.scalePercent / 100;
+            targetWidth = Math.max(1, Math.round(item.origWidth * factor));
+            targetHeight = Math.max(1, Math.round(item.origHeight * factor));
+          }
+
+          const targetMime = getTargetMimeType(item.originalFile.type);
+          const quality = state.quality / 100;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext('2d');
+
+          if (targetMime === 'image/jpeg') {
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+          const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob(
+              (res) => (res ? resolve(res) : reject(new Error('Encoding failed'))),
+              targetMime,
+              quality
+            );
+          });
+
+          if (item.compressedUrl) {
+            URL.revokeObjectURL(item.compressedUrl);
+          }
+
+          item.newWidth = targetWidth;
+          item.newHeight = targetHeight;
+          item.compressedBlob = blob;
+          item.compressedUrl = URL.createObjectURL(blob);
+          item.compressedSize = blob.size;
+          item.outputMime = targetMime;
+          item.outputName = buildOutputFilename(item.originalFile.name, targetMime);
+          item.status = 'done';
+        } catch (err) {
+          console.error(err);
+          item.status = 'error';
+          item.errorMsg = err.message || 'Compression error';
+        }
+
+        renderItemCard(item);
+        updateSummary();
+      }
+
+      async function handleFiles(fileList) {
+        const files = Array.from(fileList);
+        if (!files.length) return;
+
+        const validFiles = files.filter((f) => SUPPORTED_TYPES.has(f.type));
+        const skipped = files.length - validFiles.length;
+
+        if (skipped > 0) {
+          showToast(`Skipped ${skipped} unsupported file(s).`, 'error');
+        }
+        if (!validFiles.length) return;
+
+        clearDirty();
+
+        const newItems = validFiles.map((file) => ({
+          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+          originalFile: file,
+          originalUrl: URL.createObjectURL(file),
+          originalSize: file.size,
+          origWidth: 0,
+          origHeight: 0,
+          newWidth: 0,
+          newHeight: 0,
+          compressedBlob: null,
+          compressedUrl: null,
+          compressedSize: 0,
+          outputMime: '',
+          outputName: file.name,
+          status: 'queued',
+        }));
+
+        state.items.push(...newItems);
+        updateVisibility();
+
+        for (const item of newItems) {
+          renderItemCard(item);
+        }
+
+        for (const item of newItems) {
+          await processSingleItem(item);
+        }
+
+        showToast(`Optimized ${newItems.length} image${newItems.length > 1 ? 's' : ''} locally`, 'success');
+      }
+
+      async function reprocessAll() {
+        if (!state.items.length || state.isProcessing) return;
+        state.isProcessing = true;
+        els.reprocessBtn.disabled = true;
+        clearDirty();
+
+        for (const item of state.items) {
+          await processSingleItem(item);
+        }
+
+        state.isProcessing = false;
+        els.reprocessBtn.disabled = false;
+        showToast('Re-processed all images with updated settings', 'success');
+      }
+
+      function clearAll() {
+        for (const item of state.items) {
+          if (item.originalUrl) URL.revokeObjectURL(item.originalUrl);
+          if (item.compressedUrl) URL.revokeObjectURL(item.compressedUrl);
+        }
+        state.items = [];
+        els.imageList.innerHTML = '';
+        clearDirty();
+        updateVisibility();
+        updateSummary();
+      }
+
+      function removeItem(id) {
+        const idx = state.items.findIndex((i) => i.id === id);
+        if (idx === -1) return;
+        const [removed] = state.items.splice(idx, 1);
+        if (removed.originalUrl) URL.revokeObjectURL(removed.originalUrl);
+        if (removed.compressedUrl) URL.revokeObjectURL(removed.compressedUrl);
+
+        const card = document.getElementById(`card-${id}`);
+        if (card) card.remove();
+
+        updateVisibility();
+        updateSummary();
+      }
+
+      // --- Procedural High-Res Demo Sample Generator (100% Client-Side) ---
+      async function generateDemoSamples() {
+        els.loadDemoBtn.disabled = true;
+        const origLabel = els.loadDemoBtn.innerHTML;
+        els.loadDemoBtn.innerHTML = `<span class="animate-pulse">Generating Samples...</span>`;
+
+        try {
+          const samples = [
+            {
+              name: 'studio-aurora-landscape.png',
+              type: 'image/png',
+              width: 1600,
+              height: 1000,
+              draw(ctx, w, h) {
+                const bg = ctx.createLinearGradient(0, 0, w, h);
+                bg.addColorStop(0, '#09090b');
+                bg.addColorStop(0.5, '#0f172a');
+                bg.addColorStop(1, '#1e1b4b');
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, w, h);
+
+                // Glowing aurora waves
+                for (let i = 0; i < 6; i++) {
+                  const grad = ctx.createRadialGradient(
+                    w * (0.2 + i * 0.14),
+                    h * (0.35 + (i % 2) * 0.18),
+                    20,
+                    w * (0.2 + i * 0.14),
+                    h * 0.45,
+                    480
+                  );
+                  grad.addColorStop(0, i % 2 === 0 ? 'rgba(16, 185, 129, 0.45)' : 'rgba(139, 92, 246, 0.4)');
+                  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                  ctx.fillStyle = grad;
+                  ctx.fillRect(0, 0, w, h);
+                }
+
+                // Fine geometric grid texture
+                ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < w; x += 40) {
+                  ctx.beginPath();
+                  ctx.moveTo(x, 0);
+                  ctx.lineTo(x, h);
+                  ctx.stroke();
+                }
+                for (let y = 0; y < h; y += 40) {
+                  ctx.beginPath();
+                  ctx.moveTo(0, y);
+                  ctx.lineTo(w, y);
+                  ctx.stroke();
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 54px Inter, sans-serif';
+                ctx.fillText('AURORA 4K SAMPLE', 80, h - 120);
+                ctx.fillStyle = '#34d399';
+                ctx.font = '26px monospace';
+                ctx.fillText('1600×1000 • PROCEDURAL PNG TEST ASSET', 80, h - 75);
+              },
+            },
+            {
+              name: 'transparent-badge-ui.png',
+              type: 'image/png',
+              width: 1024,
+              height: 1024,
+              draw(ctx, w, h) {
+                ctx.clearRect(0, 0, w, h);
+                const cx = w / 2;
+                const cy = h / 2;
+
+                const ring = ctx.createLinearGradient(150, 150, w - 150, h - 150);
+                ring.addColorStop(0, '#10b981');
+                ring.addColorStop(0.5, '#06b6d4');
+                ring.addColorStop(1, '#8b5cf6');
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, 380, 0, Math.PI * 2);
+                ctx.fillStyle = ring;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, 290, 0, Math.PI * 2);
+                ctx.fillStyle = '#111114';
+                ctx.fill();
+
+                ctx.strokeStyle = '#34d399';
+                ctx.lineWidth = 18;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(cx - 110, cy + 10);
+                ctx.lineTo(cx - 30, cy + 90);
+                ctx.lineTo(cx + 125, cy - 85);
+                ctx.stroke();
+              },
+            },
+            {
+              name: 'editorial-sunset-photo.jpg',
+              type: 'image/jpeg',
+              width: 1440,
+              height: 960,
+              draw(ctx, w, h) {
+                const sky = ctx.createLinearGradient(0, 0, 0, h);
+                sky.addColorStop(0, '#1e1b4b');
+                sky.addColorStop(0.45, '#be185d');
+                sky.addColorStop(0.78, '#f97316');
+                sky.addColorStop(1, '#fde047');
+                ctx.fillStyle = sky;
+                ctx.fillRect(0, 0, w, h);
+
+                // Sun disc
+                ctx.beginPath();
+                ctx.arc(w * 0.5, h * 0.62, 160, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(254, 240, 138, 0.9)';
+                ctx.fill();
+
+                // Layered mountain silhouettes
+                const layers = [
+                  { y: 0.68, amp: 85, color: '#311042' },
+                  { y: 0.77, amp: 65, color: '#1e0b2b' },
+                  { y: 0.86, amp: 45, color: '#09090b' },
+                ];
+                layers.forEach((layer, idx) => {
+                  ctx.beginPath();
+                  ctx.moveTo(0, h);
+                  for (let x = 0; x <= w; x += 24) {
+                    const wave =
+                      Math.sin(x * 0.004 + idx * 2) * layer.amp +
+                      Math.cos(x * 0.011 - idx) * (layer.amp * 0.4);
+                    ctx.lineTo(x, h * layer.y + wave);
+                  }
+                  ctx.lineTo(w, h);
+                  ctx.closePath();
+                  ctx.fillStyle = layer.color;
+                  ctx.fill();
+                });
+              },
+            },
+          ];
+
+          const generatedFiles = [];
+          for (const sample of samples) {
+            const canvas = document.createElement('canvas');
+            canvas.width = sample.width;
+            canvas.height = sample.height;
+            const ctx = canvas.getContext('2d');
+            sample.draw(ctx, sample.width, sample.height);
+
+            const blob = await new Promise((resolve) =>
+              canvas.toBlob(resolve, sample.type, 0.98)
+            );
+            generatedFiles.push(new File([blob], sample.name, { type: sample.type }));
+          }
+
+          await handleFiles(generatedFiles);
+        } finally {
+          els.loadDemoBtn.disabled = false;
+          els.loadDemoBtn.innerHTML = origLabel;
+        }
+      }
+
+      // --- UI Updates & Rendering ---
+      function updateVisibility() {
+        const hasItems = state.items.length > 0;
+        els.reprocessBtn.disabled = !hasItems;
+        els.summaryBar.classList.toggle('hidden', !hasItems);
+        els.queueSection.classList.toggle('hidden', !hasItems);
+        els.mobileBottomBar.classList.toggle('hidden', !hasItems);
+      }
+
+      function updateSummary() {
+        const doneItems = state.items.filter((i) => i.status === 'done');
+        els.statCount.textContent = state.items.length;
+
+        const totalOrig = doneItems.reduce((acc, i) => acc + i.originalSize, 0);
+        const totalComp = doneItems.reduce((acc, i) => acc + i.compressedSize, 0);
+        const diff = totalOrig - totalComp;
+        const pct = totalOrig > 0 ? Math.round((diff / totalOrig) * 100) : 0;
+
+        els.statOriginal.textContent = formatBytes(totalOrig);
+        els.statCompressed.textContent = formatBytes(totalComp);
+
+        if (diff >= 0) {
+          els.statSavedBytes.textContent = formatBytes(diff);
+          els.statSavedBadge.textContent = `-${pct}%`;
+          els.statSavedBadge.className =
+            'font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300';
+        } else {
+          els.statSavedBytes.textContent = `+${formatBytes(Math.abs(diff))}`;
+          els.statSavedBadge.textContent = `+${Math.abs(pct)}%`;
+          els.statSavedBadge.className =
+            'font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300';
+        }
+      }
+
+      function renderItemCard(item) {
+        let card = document.getElementById(`card-${item.id}`);
+        if (!card) {
+          card = document.createElement('div');
+          card.id = `card-${item.id}`;
+          card.className =
+            'rounded-2xl border border-zinc-200/90 dark:border-white/[0.08] bg-white/95 dark:bg-obsidian-900/90 p-3.5 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition hover:border-zinc-300 dark:hover:border-white/[0.16]';
+          els.imageList.appendChild(card);
+        }
+
+        const isDone = item.status === 'done';
+        const isError = item.status === 'error';
+
+        let savingsBadge = '';
+        if (isDone) {
+          const savedBytes = item.originalSize - item.compressedSize;
+          const pct = item.originalSize > 0 ? Math.round((savedBytes / item.originalSize) * 100) : 0;
+          if (savedBytes >= 0) {
+            savingsBadge = `<span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">-${pct}% saved</span>`;
+          } else {
+            savingsBadge = `<span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20">+${Math.abs(pct)}% larger</span>`;
+          }
+        }
+
+        const formatPill = isDone
+          ? `<span class="font-mono uppercase text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-obsidian-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200/70 dark:border-white/[0.06]">${getExtensionForMime(item.outputMime)}</span>`
+          : '';
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3.5 min-w-0">
+            <!-- Thumbnail Preview -->
+            <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border border-zinc-200 dark:border-white/[0.08] checkerboard flex items-center justify-center">
+              <img src="${isDone ? item.compressedUrl : item.originalUrl}" alt="${escapeHtml(item.outputName)}" class="w-full h-full object-cover" />
+            </div>
+
+            <!-- Metadata & Telemetry -->
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <p class="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100" title="${escapeHtml(item.outputName)}">
+                  ${escapeHtml(item.outputName)}
+                </p>
+                ${formatPill}
+              </div>
+
+              ${
+                isError
+                  ? `<p class="text-xs text-rose-500 mt-1">${escapeHtml(item.errorMsg)}</p>`
+                  : isDone
+                  ? `
+                    <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">
+                      <span>${item.origWidth}×${item.origHeight} → <strong class="text-zinc-800 dark:text-zinc-200">${item.newWidth}×${item.newHeight}</strong></span>
+                      <span class="text-zinc-300 dark:text-zinc-700">•</span>
+                      <span>${formatBytes(item.originalSize)} → <strong class="text-zinc-900 dark:text-white">${formatBytes(item.compressedSize)}</strong></span>
+                      ${savingsBadge}
+                    </div>
+                  `
+                  : `<p class="text-xs text-emerald-500 mt-1.5 flex items-center gap-2">
+                      <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                      Encoding locally...
+                    </p>`
+              }
+            </div>
+          </div>
+
+          <!-- Touch-Friendly Card Actions (44px+ height) -->
+          <div class="flex items-center justify-end gap-2 shrink-0 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-white/[0.06]">
+            ${
+              isDone
+                ? `
+                  <button type="button" data-action="compare" data-id="${item.id}"
+                    class="flex-1 sm:flex-initial min-h-[42px] px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-white/[0.1] bg-zinc-50 dark:bg-obsidian-850 hover:bg-zinc-100 dark:hover:bg-obsidian-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 transition flex items-center justify-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-violet-500" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span>Compare</span>
+                  </button>
+                  <button type="button" data-action="download" data-id="${item.id}"
+                    class="flex-1 sm:flex-initial min-h-[42px] px-3.5 py-2 rounded-xl bg-emerald-600/15 hover:bg-emerald-600 text-emerald-700 dark:text-emerald-300 hover:text-white border border-emerald-500/25 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>Save</span>
+                  </button>
+                `
+                : ''
+            }
+            <button type="button" data-action="remove" data-id="${item.id}" aria-label="Remove image"
+              class="min-w-[42px] min-h-[42px] rounded-xl text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 flex items-center justify-center transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        `;
+      }
+
+      // --- Download & Bulk ZIP Export ---
+      function triggerDownload(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      async function downloadAllAsZip() {
+        const doneItems = state.items.filter((i) => i.status === 'done' && i.compressedBlob);
+        if (!doneItems.length) return;
+
+        if (typeof JSZip === 'undefined') {
+          showToast('JSZip library unavailable. Download files individually.', 'error');
+          return;
+        }
+
+        els.downloadZipBtn.disabled = true;
+        els.mobileZipBtn.disabled = true;
+        els.zipBtnLabel.textContent = 'Bundling ZIP...';
+        els.mobileZipLabel.textContent = 'Bundling ZIP...';
+
+        try {
+          const zip = new JSZip();
+          const usedNames = new Map();
+
+          for (const item of doneItems) {
+            let fileName = item.outputName;
+            if (usedNames.has(fileName)) {
+              const count = usedNames.get(fileName) + 1;
+              usedNames.set(fileName, count);
+              const dotIdx = fileName.lastIndexOf('.');
+              const base = dotIdx > 0 ? fileName.slice(0, dotIdx) : fileName;
+              const ext = dotIdx > 0 ? fileName.slice(dotIdx) : '';
+              fileName = `${base}-${count}${ext}`;
+            } else {
+              usedNames.set(fileName, 1);
+            }
+
+            zip.file(fileName, item.compressedBlob);
+          }
+
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const zipUrl = URL.createObjectURL(zipBlob);
+          const timestamp = new Date().toISOString().slice(0, 10);
+          triggerDownload(zipUrl, `squishlocal-batch-${timestamp}.zip`);
+
+          setTimeout(() => URL.revokeObjectURL(zipUrl), 10000);
+          showToast(`Exported ${doneItems.length} files to ZIP`, 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Failed to generate ZIP archive.', 'error');
+        } finally {
+          els.downloadZipBtn.disabled = false;
+          els.mobileZipBtn.disabled = false;
+          els.zipBtnLabel.textContent = 'Download All (.ZIP)';
+          els.mobileZipLabel.textContent = 'Download All (.ZIP)';
+        }
+      }
+
+      // --- Interactive Pointer/Touch Before & After Comparison Modal ---
+      function setModalZoom(is100) {
+        state.isZoom100 = is100;
+        if (is100) {
+          els.zoom100Btn.className =
+            'min-h-[34px] px-2.5 rounded-lg font-mono text-xs font-semibold bg-white dark:bg-obsidian-800 text-zinc-900 dark:text-white shadow-sm transition';
+          els.zoomFitBtn.className =
+            'min-h-[34px] px-2.5 rounded-lg text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition';
+          els.compareCompressedImg.classList.remove('max-w-full', 'max-h-[64vh]');
+          els.compareCompressedImg.classList.add('max-w-none');
+        } else {
+          els.zoomFitBtn.className =
+            'min-h-[34px] px-2.5 rounded-lg text-xs font-semibold bg-white dark:bg-obsidian-800 text-zinc-900 dark:text-white shadow-sm transition';
+          els.zoom100Btn.className =
+            'min-h-[34px] px-2.5 rounded-lg font-mono text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition';
+          els.compareCompressedImg.classList.add('max-w-full', 'max-h-[64vh]');
+          els.compareCompressedImg.classList.remove('max-w-none');
+        }
+      }
+
+      function updateSliderPosition(clientX) {
+        const rect = els.compareStage.getBoundingClientRect();
+        if (!rect.width) return;
+        const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+        state.sliderPercent = pct;
+        els.compareOriginalOverlay.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+        els.compareDivider.style.left = `${pct}%`;
+      }
+
+      function openCompareModal(item) {
+        state.activeModalItemId = item.id;
+        els.modalTitle.textContent = item.outputName;
+        const savedPct =
+          item.originalSize > 0
+            ? Math.round(((item.originalSize - item.compressedSize) / item.originalSize) * 100)
+            : 0;
+        els.modalMeta.textContent = `${item.origWidth}×${item.origHeight} → ${item.newWidth}×${item.newHeight} • ${
+          savedPct >= 0 ? `-${savedPct}% saved` : `+${Math.abs(savedPct)}%`
+        }`;
+
+        els.compareOriginalImg.src = item.originalUrl;
+        els.compareCompressedImg.src = item.compressedUrl;
+        els.modalOrigSize.textContent = formatBytes(item.originalSize);
+        els.modalCompSize.textContent = formatBytes(item.compressedSize);
+
+        setModalZoom(false);
+        state.sliderPercent = 50;
+        els.compareOriginalOverlay.style.clipPath = 'inset(0 50% 0 0)';
+        els.compareDivider.style.left = '50%';
+
+        els.compareModal.classList.remove('hidden');
+        els.compareModal.classList.add('flex');
+      }
+
+      function closeCompareModal() {
+        state.activeModalItemId = null;
+        els.compareModal.classList.add('hidden');
+        els.compareModal.classList.remove('flex');
+      }
+
+      // Unified Pointer & Touch Scrubbing on Comparison Stage
+      let isDraggingSlider = false;
+
+      els.compareStage.addEventListener('pointerdown', (e) => {
+        isDraggingSlider = true;
+        els.compareStage.setPointerCapture(e.pointerId);
+        updateSliderPosition(e.clientX);
+      });
+
+      els.compareStage.addEventListener('pointermove', (e) => {
+        if (!isDraggingSlider) return;
+        updateSliderPosition(e.clientX);
+      });
+
+      els.compareStage.addEventListener('pointerup', (e) => {
+        if (isDraggingSlider) {
+          isDraggingSlider = false;
+          els.compareStage.releasePointerCapture(e.pointerId);
+        }
+      });
+
+      els.compareStage.addEventListener('pointercancel', () => {
+        isDraggingSlider = false;
+      });
+
+      // --- Event Wiring ---
+      els.formatBtns.forEach((btn) => {
+        btn.addEventListener('click', () => setOutputFormat(btn.dataset.format));
+      });
+
+      els.qualitySlider.addEventListener('input', (e) => setQuality(e.target.value));
+      els.presetBtns.forEach((btn) => {
+        btn.addEventListener('click', () => setQuality(btn.dataset.preset));
+      });
+
+      els.resizeModeBtns.forEach((btn) => {
+        btn.addEventListener('click', () => setResizeMode(btn.dataset.resizeMode));
+      });
+
+      els.widthPresetBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          els.maxWidthInput.value = btn.dataset.widthPreset;
+          state.maxWidth = Number(btn.dataset.widthPreset);
+          markDirty();
+        });
+      });
+
+      els.maxWidthInput.addEventListener('input', () => {
+        state.maxWidth = parseInt(els.maxWidthInput.value, 10) || 1920;
+        markDirty();
+      });
+
+      els.scalePresetBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.scalePercent = Number(btn.dataset.scalePreset);
+          els.scalePresetBtns.forEach((b) => {
+            const active = Number(b.dataset.scalePreset) === state.scalePercent;
+            b.className = active
+              ? 'scale-preset-btn min-h-[38px] rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-semibold transition'
+              : 'scale-preset-btn min-h-[38px] rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-obsidian-850 font-mono text-xs font-medium transition';
+          });
+          markDirty();
+        });
+      });
+
+      els.bgSwatchBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.bgColor = btn.dataset.bgColor;
+          els.customBgColor.value = state.bgColor;
+          els.bgSwatchBtns.forEach((b) => b.classList.remove('border-2', 'border-emerald-500'));
+          btn.classList.add('border-2', 'border-emerald-500');
+          markDirty();
+        });
+      });
+
+      els.customBgColor.addEventListener('input', (e) => {
+        state.bgColor = e.target.value;
+        els.bgSwatchBtns.forEach((b) => b.classList.remove('border-2', 'border-emerald-500'));
+        markDirty();
+      });
+
+      els.reprocessBtn.addEventListener('click', reprocessAll);
+      els.clearAllBtn.addEventListener('click', clearAll);
+      els.mobileClearBtn.addEventListener('click', clearAll);
+      els.downloadZipBtn.addEventListener('click', downloadAllAsZip);
+      els.mobileZipBtn.addEventListener('click', downloadAllAsZip);
+
+      // Dropzone & File Picker
+      els.dropZone.addEventListener('click', (e) => {
+        if (e.target.closest('#loadDemoBtn') || e.target === els.fileInput) return;
+        els.fileInput.click();
+      });
+
+      els.dropZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          els.fileInput.click();
+        }
+      });
+
+      els.loadDemoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        generateDemoSamples();
+      });
+
+      els.fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+        els.fileInput.value = '';
+      });
+
+      ['dragenter', 'dragover'].forEach((evt) => {
+        els.dropZone.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          els.dropZone.classList.add('border-emerald-500', 'bg-emerald-500/[0.06]', 'scale-[1.005]');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach((evt) => {
+        els.dropZone.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          els.dropZone.classList.remove('border-emerald-500', 'bg-emerald-500/[0.06]', 'scale-[1.005]');
+        });
+      });
+
+      els.dropZone.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files) {
+          handleFiles(e.dataTransfer.files);
+        }
+      });
+
+      // Queue Card Delegated Actions
+      els.imageList.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const { action, id } = btn.dataset;
+        const item = state.items.find((i) => i.id === id);
+        if (!item) return;
+
+        if (action === 'download' && item.compressedUrl) {
+          triggerDownload(item.compressedUrl, item.outputName);
+        } else if (action === 'compare' && item.status === 'done') {
+          openCompareModal(item);
+        } else if (action === 'remove') {
+          removeItem(id);
+        }
+      });
+
+      // Modal Controls
+      els.zoomFitBtn.addEventListener('click', () => setModalZoom(false));
+      els.zoom100Btn.addEventListener('click', () => setModalZoom(true));
+      els.closeModalBtn.addEventListener('click', closeCompareModal);
+      els.compareModal.addEventListener('click', (e) => {
+        if (e.target === els.compareModal) closeCompareModal();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !els.compareModal.classList.contains('hidden')) {
+          closeCompareModal();
+        }
+      });
+
+      els.modalDownloadBtn.addEventListener('click', () => {
+        const item = state.items.find((i) => i.id === state.activeModalItemId);
+        if (item && item.compressedUrl) {
+          triggerDownload(item.compressedUrl, item.outputName);
+        }
+      });
+
+      // Boot
+      initTheme();
+      setOutputFormat('image/webp');
+    })();
+  </script>
+</body>
+</html>
